@@ -1,0 +1,19 @@
+{
+  "name": "owbastion-workshop-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic Workshop domain tools: OverPy compile/validate, repository and rule inspection. Portable across agent harnesses and model providers (see CONTRACTS.md).",
+  "license": "UNLICENSED",
+  "bin": {
+    "compile_overpy": "./bin/compile_overpy.js",
+    "find_symbol": "./bin/find_symbol.js",
+    "find_references": "./bin/find_references.js",
+    "inspect_rule": "./bin/inspect_rule.js",
+    "search_workshop_docs": "./bin/search_workshop_docs.js",
+    "fetch_workshop_doc": "./bin/fetch_workshop_doc.js",
+    "analyze_workshop": "./bin/analyze_workshop.js"
+  },
+  "dependencies": {
+    "overpy": "^9.7.9"
+  }
+}
