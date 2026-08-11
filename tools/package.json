@@ -1,9 +1,30 @@
 {
   "name": "owbastion-workshop-tools",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Deterministic Workshop domain tools: OverPy compile/validate, repository and rule inspection. Portable across agent harnesses and model providers (see CONTRACTS.md).",
-  "license": "UNLICENSED",
+  "version": "0.1.3",
+  "description": "Deterministic Overwatch Workshop engineering tools for coding agents: OverPy compile/validate with structured diagnostics, symbol/reference search, rule inspection, routed Workshop docs retrieval (search/fetch), and the M5 Workshop domain analyzer. Portable CLI/JSON contracts, model/harness-neutral (see CONTRACTS.md).",
+  "license": "AGPL-3.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OWBastion/workshop-agent.git"
+  },
+  "keywords": [
+    "overwatch",
+    "workshop",
+    "overpy",
+    "ostw",
+    "coding-agent",
+    "claude",
+    "analyzer"
+  ],
+  "files": [
+    "bin/",
+    "lib/",
+    "CONTRACTS.md",
+    "README.md"
+  ],
   "bin": {
     "compile_overpy": "./bin/compile_overpy.js",
     "find_symbol": "./bin/find_symbol.js",

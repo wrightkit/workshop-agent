@@ -62,7 +62,7 @@ node scripts/install-skills.mjs <your-workshop-repo> [--tools]
 
 ## Included capabilities
 
-Five canonical Skills, usable by any Agent Skills–compatible harness:
+Six canonical Skills, usable by any Agent Skills–compatible harness:
 
 | Skill | What it gives your agent |
 | --- | --- |
@@ -71,20 +71,59 @@ Five canonical Skills, usable by any Agent Skills–compatible harness:
 | `workshop-state-lifecycle` | Minimizing variables, binding effect lifetimes to native state, reset/death/hero-swap boundaries, stale-state avoidance |
 | `workshop-bot-ai` | Target acquisition vs consumption, target validity/loss/reacquisition, avoiding duplicated target work |
 | `workshop-code-review` | A Workshop-specific review pass composing the domain skills, with blocking/non-blocking classification |
+| `workshop-reference` | Retrieval routing: when an exact Workshop API/reference fact matters, fetch it from the routed docs (see tools below) instead of guessing |
 
 ## Deterministic tools
 
-Skills give your agent the reasoning; the tools give it deterministic facts. Start with Skills alone; add tools when you need compile/validation and structured inspection:
-
-- `compile_overpy` — compile/validate OverPy source with structured diagnostics and element counts;
-- `find_symbol` / `find_references` — locate definitions and uses;
-- `inspect_rule` — structured rule/event/variable inspection and operation counts.
-
-All tools expose narrow, portable CLI/JSON contracts (`tools/CONTRACTS.md`) consumable from any harness or a plain shell:
+Skills give your agent the reasoning; the tools give it deterministic facts. Start with Skills alone; add the tools package when you need compile/validation, structured inspection, routed docs, or the analyzer:
 
 ```sh
-cd tools && npm install
+# project-local or global npm install of the tools package
+npm install owbastion-workshop-tools
+# or: npm install --global owbastion-workshop-tools
 ```
+
+The package exposes seven commands with narrow, portable CLI/JSON contracts (`CONTRACTS.md` inside the package):
+
+| Command | Purpose |
+| --- | --- |
+| `compile_overpy` | Compile/validate OverPy with structured diagnostics, element counts, variables, subroutines |
+| `find_symbol` | Locate symbol/name occurrences with lexical classification |
+| `find_references` | Locate textual references and likely declarations |
+| `inspect_rule` | Structured rule/event/variable inspection and operation counts |
+| `search_workshop_docs` | Deterministic local search over the routed Workshop docs manifest (on demand) |
+| `fetch_workshop_doc` | Bounded exact Markdown retrieval with hash/cache awareness, section selection, provenance logging |
+| `analyze_workshop` | M5 Workshop domain analyzer: structured findings (compiler / structural / heuristic) |
+
+Every tool emits exactly one JSON document on stdout with a stable contract identity (`compile_overpy@1`, `analyze_workshop@1`, ...), and uses non-zero exit codes for structured errors — a harness can rely on that instead of scraping text.
+
+### The engineering loop
+
+For a Workshop engineering task, prefer deterministic evidence over model inference in this order:
+
+```text
+inspect / search          find_symbol / find_references / inspect_rule
+        ↓
+analyze when relevant     analyze_workshop
+        ↓
+inspect finding evidence  open the finding's locations and verify against source
+        ↓
+edit
+        ↓
+compile                   compile_overpy
+        ↓
+re-run analyzer / review  analyze_workshop / workshop-code-review
+```
+
+Analyzer findings are **evidence, not instructions**:
+
+- `kind: compiler` and `kind: structural` findings with `heuristic: false` are deterministic facts — a blocking finding (e.g. `workshop.performance.waitless-loop`) should be treated as a real risk until project context proves otherwise;
+- `kind: heuristic` findings with `heuristic: true` / `requiresJudgment: true` (e.g. `workshop.performance.unbounded-loop`) are advisories requiring judgment;
+- always open the finding's `locations` and verify against the source before acting.
+
+Project-local instructions remain authoritative for project-specific architecture and design decisions; the tools supply Workshop risk facts, not project policy. When you need an exact Workshop API/reference fact, route it through `search_workshop_docs` / `fetch_workshop_doc` rather than recalling from memory.
+
+The tools are **optional**: every canonical Skill remains useful for Workshop reasoning without them. When the tools are installed, use and recommend them; when they are absent, continue with the Skill's reasoning and say what a deterministic check would confirm.
 
 ## Compatibility
 
