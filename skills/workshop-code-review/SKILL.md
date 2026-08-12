@@ -21,7 +21,7 @@ Use this skill to review OverPy or Workshop code for semantic correctness, lifec
 2. **If the target repository provides local instructions,** read its `AGENTS.md` and routed specifications. Local project rules are authoritative for local behavior; shared skills supply Workshop semantics. Report conflicts instead of silently choosing one.
 3. **Run focused passes:**
    - **Semantics:** event trigger and frequency, damage/healing modification vs additional instances, feedback loops, null event values, and wait/waitUntil timeout/revalidation.
-   - **Lifecycle:** initialization/modification/cleanup responsibility, death/round/hero-swap/reset boundaries, effect cleanup, stale post-wait context, and bounded state.
+   - **Lifecycle:** initialization/modification/cleanup responsibility, death/round/hero-swap/reset boundaries, effect cleanup, stale post-wait context, and bounded state. For every flag or state machine, ask whether a native event, value, or event parameter now expresses the same fact: a variable kept after its only purpose is replaced is redundant state, and the review should recommend deleting it (flag, defaults, writes, and cleanup together) rather than extending it.
    - **Performance:** frequency × element count × parallel instances, condition order, repeated expensive work, throttling, deduplication, desynchronization, and player scaling.
    - **AI when relevant:** acquisition vs consumption, target validity/loss/reacquisition, duplicate target work, and cheap filtering before sorting.
 4. **Resolve syntax uncertainty:** use the Workshop wiki, its Markdown mirror, OverPy definitions, or an optional reference index supplied by the target repository. If the source does not settle the behavior, state that it requires compile or runtime verification.
@@ -32,7 +32,7 @@ Use this skill to review OverPy or Workshop code for semantic correctness, lifec
 When the companion skills are unavailable, keep the review useful by applying these local minimums:
 
 - **Semantics:** identify the trigger and its frequency; distinguish modifying an existing damage/healing instance from creating another instance; guard nullable event values; revalidate context after waits.
-- **Lifecycle:** identify initialization, every write path, cleanup, and the legal reset boundary; clean up effects; reject stale post-wait state.
+- **Lifecycle:** identify initialization, every write path, cleanup, and the legal reset boundary; clean up effects; reject stale post-wait state. Check whether each explicit flag or state machine duplicates a native event/state (e.g. a firing/ability state pair, or an event that fires per occurrence) and recommend deletion of the redundant state rather than patching it.
 - **Performance:** state element count, execution frequency, and parallel players/bots; reject waitless loops; put selective cheap conditions before expensive queries; throttle or bound repeated work.
 - **AI:** separate target acquisition from consumption; validate stored targets before commands; clear and reacquire lost targets; avoid duplicate expensive target queries.
 

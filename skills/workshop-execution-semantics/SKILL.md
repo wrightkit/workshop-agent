@@ -35,7 +35,8 @@ Workshop has three materially different mechanisms:
 ## 3. Mitigation, amplification, and repeated triggers
 
 - Modifier actions apply to all damage passing through a player, including ability, weapon, and environmental damage. Stacking with game-native mitigation or amplification can be version-sensitive; mark the interaction for verification when the ordering is undocumented.
-- An additional instance independently goes through the target's mitigation and amplification. Equal numeric values do not make a modifier and an additional instance equivalent.
+- An additional instance independently goes through the target's mitigation and amplification. Equal numeric values do not make a modifier and an additional instance equivalent. It is not true damage and not a damage modifier: a `damage()` used for a max-health proc is processed through the target's damage-received chain again, like any other damage.
+- When the project's settings document that a hero-specific value (for example a per-hero `damageReceived%`) overrides the general/team value, apply the override rather than assuming the two multipliers compose. Check the project's documented layering semantics before multiplying mitigation values; the answer is often override, not product.
 - In repeated-damage scenarios, instance cost and event frequency multiply: ten triggers per second creating five instances each produces fifty damage checks per second.
 
 ## 4. `wait`/`waitUntil` and revalidation after suspension

@@ -72,6 +72,16 @@ Arrays, histories, and counters need a bound. Trim after appending and cap retri
 
 Reusable mechanisms include lifecycle end sentinels, ID-aligned parallel arrays, centralized cleanup, and condition-bound countdowns. Sentinel values, variable names, event IDs, array layouts, and project constants belong to the downstream repository and must not be presented as universal rules.
 
+### Rule 8: delete state when a stronger native signal supersedes it
+
+Simplification is an engineering outcome, not a style preference. When new evidence — a verified native event, value, or event parameter — expresses what an existing variable or state machine was tracking, remove the state instead of extending it:
+
+1. Identify the fact each variable tracks and whether any native event/state now expresses it directly. Example families: a "charge is happening" flag replaced by a firing/ability state pair, or per-hit "apply once" bookkeeping replaced by an event that fires naturally per occurrence.
+2. Remove the variable, its init/join defaults, every write path, and its cleanup/reset lines together. Keeping a variable after its only purpose is replaced creates configuration drift and stale-state surface for no benefit.
+3. Prefer, when behavior is equivalent: a native event or value, then a small event-driven rule, then explicit project state, then a custom lifecycle/state machine, then a synthetic simulation of an unavailable native mechanic. Native-state reuse is not a license to use an ambiguous signal: the native signal must be verified, not assumed.
+
+The reverse case still holds: if deriving the fact requires an expensive per-tick query while one write caches it safely, explicit state may be correct. Deletion is warranted when the native signal is at least as cheap and unambiguous.
+
 ## Anti-patterns
 
 1. **Stale post-wait context:** a timeout shorter than the real event lifetime followed by actions that depend on the old context.
@@ -80,6 +90,7 @@ Reusable mechanisms include lifecycle end sentinels, ID-aligned parallel arrays,
 4. **State created only for cleanup:** a timer and guard duplicate an existing lifecycle.
 5. **Unbounded history:** a deduplication or event array grows for the entire match.
 6. **Configuration drift:** code behavior changes but project settings and documentation are not updated.
+7. **Patched state machine after a native signal appears:** new evidence (a verified native event/state) makes a flag or state machine redundant, and the implementation grows a workaround on top of the old state instead of deleting it.
 
 ## When explicit state is correct
 
@@ -100,6 +111,7 @@ Do not store a respawn timer when `Wait Until(Is Alive, ...)` expresses the nati
 7. Can concurrent rules perform a non-atomic read-modify-write?
 8. Is cleanup bound to an existing lifecycle rather than a new timer?
 9. Does a behavior change require project settings or documentation to be synchronized?
+10. After a stronger native signal is verified, is the now-redundant state deleted (flag, defaults, writes, and cleanup together) rather than patched?
 
 ## References
 
