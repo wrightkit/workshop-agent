@@ -7,7 +7,7 @@
 
 ## [0.1.1] — 2026-08-11
 
-- Added valid Agent Skills YAML frontmatter (`name` + activation-oriented `description`) to all five canonical Skills, making them installable via `npx skills add OWBastion/workshop-agent`.
+- Added valid Agent Skills YAML frontmatter (`name` + activation-oriented `description`) to all five canonical Skills, making them installable via `npx skills add wrightkit/workshop-agent`.
 - Reframed the README around the product vision — Workshop-native engineering knowledge for any coding agent — with the open Skills CLI as the primary install path.
 - Extended the export conformance suite to validate Skill frontmatter, unique names, and name/directory mapping.
 

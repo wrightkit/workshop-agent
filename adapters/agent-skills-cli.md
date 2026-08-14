@@ -6,10 +6,10 @@ The standard developer path: any coding agent with shell access installs the Ski
 
 ```sh
 # Skills (one command)
-npx skills add OWBastion/workshop-agent
+npx skills add wrightkit/workshop-agent
 
 # Deterministic tools (project-local or global)
-npm install owbastion-workshop-tools
+npm install wrightkit-workshop-tools
 ```
 
 ## Invocation

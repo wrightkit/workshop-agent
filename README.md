@@ -1,4 +1,4 @@
-# OWBastion Workshop Agent
+# Wrightkit Workshop Agent
 
 **Workshop-native engineering knowledge for any coding agent.**
 
@@ -31,25 +31,25 @@ Workshop Agent supplies that reusable domain layer as portable, model/harness-ag
 Install the Skills with the open [Agent Skills](https://agentskills.io) CLI:
 
 ```sh
-npx skills add OWBastion/workshop-agent
+npx skills add wrightkit/workshop-agent
 ```
 
 Useful variants:
 
 ```sh
 # inspect what is available before installing
-npx skills add OWBastion/workshop-agent --list
+npx skills add wrightkit/workshop-agent --list
 
 # install for a specific agent
-npx skills add OWBastion/workshop-agent -a codex
-npx skills add OWBastion/workshop-agent -a claude-code
-npx skills add OWBastion/workshop-agent -a gemini-cli
-npx skills add OWBastion/workshop-agent -a opencode
-npx skills add OWBastion/workshop-agent -a pi
-npx skills add OWBastion/workshop-agent -a grok
+npx skills add wrightkit/workshop-agent -a codex
+npx skills add wrightkit/workshop-agent -a claude-code
+npx skills add wrightkit/workshop-agent -a gemini-cli
+npx skills add wrightkit/workshop-agent -a opencode
+npx skills add wrightkit/workshop-agent -a pi
+npx skills add wrightkit/workshop-agent -a grok
 
 # global install, where desired
-npx skills add OWBastion/workshop-agent -g
+npx skills add wrightkit/workshop-agent -g
 ```
 
 The Skill content is portable; activation and tool behavior can vary by harness, so don't assume identical behavior across agents.
@@ -79,8 +79,8 @@ Skills give your agent the reasoning; the tools give it deterministic facts. Sta
 
 ```sh
 # project-local or global npm install of the tools package
-npm install owbastion-workshop-tools
-# or: npm install --global owbastion-workshop-tools
+npm install wrightkit-workshop-tools
+# or: npm install --global wrightkit-workshop-tools
 ```
 
 The package exposes seven commands with narrow, portable CLI/JSON contracts (`CONTRACTS.md` inside the package):
@@ -135,4 +135,4 @@ Works with Agent Skills–compatible harnesses including Codex, Claude Code, Gem
 
 ## License
 
-See `LICENSE`. The canonical domain skills/tools are authored by the OWBastion project; external reference material is cited, not included.
+See `LICENSE`. The canonical domain skills/tools are authored by the Wrightkit project; external reference material is cited, not included.

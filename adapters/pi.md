@@ -7,8 +7,8 @@ Pi is the controlled reference harness used for reproducible A/B and dogfood run
 Install the Skills to a directory and the tools package so `compile_overpy` etc. are on the PATH of the session:
 
 ```sh
-npx skills add OWBastion/workshop-agent          # installs the six skills
-npm install owbastion-workshop-tools             # tools on PATH
+npx skills add wrightkit/workshop-agent          # installs the six skills
+npm install wrightkit-workshop-tools             # tools on PATH
 ```
 
 Point Pi at the installed Skills directory (never at a private source):
@@ -24,7 +24,7 @@ pi --print \
 ## Invocation notes
 
 - The model reads the one-JSON stdout of each tool and uses the `contract` identity + `ok` flag rather than prose.
-- **PATH propagation:** Pi's bash tool may run in a login shell that does not inherit the outer `PATH`. Verified in M6 dogfood: `compile_overpy` was "command not found" in the eval shell even though it was on the launching shell's PATH. Two reliable fixes: install the tools package **inside the target repo** (`cd repo && npm install owbastion-workshop-tools`) and call `./node_modules/.bin/compile_overpy` or `npx compile_overpy` from the repo root; or reference the installed bin by an explicit relative path. Prefer the in-repo install — it also keeps the tools with the project.
+- **PATH propagation:** Pi's bash tool may run in a login shell that does not inherit the outer `PATH`. Verified in M6 dogfood: `compile_overpy` was "command not found" in the eval shell even though it was on the launching shell's PATH. Two reliable fixes: install the tools package **inside the target repo** (`cd repo && npm install wrightkit-workshop-tools`) and call `./node_modules/.bin/compile_overpy` or `npx compile_overpy` from the repo root; or reference the installed bin by an explicit relative path. Prefer the in-repo install — it also keeps the tools with the project.
 - Non-zero exits are real failures — the model must surface the structured error, not invent a pass.
 - `analyze_workshop` findings are evidence: deterministic findings may block, heuristic advisories require judgment (see `workshop-code-review`).
 - Keep the profile flags identical across comparison arms; the only intended variation is the domain/Skill dimension under test.

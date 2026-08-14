@@ -5,7 +5,7 @@ The agent-free model: a shell script, CI job, or Node process spawns the tools a
 ## Setup
 
 ```sh
-npm install owbastion-workshop-tools
+npm install wrightkit-workshop-tools
 # binaries land in ./node_modules/.bin/ (or the system PATH for global installs)
 ```
 

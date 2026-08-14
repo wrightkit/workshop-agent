@@ -17,11 +17,11 @@ The tools are plain Node CLIs that emit **exactly one JSON document on stdout** 
 
 ```sh
 # 1. canonical Skills (Agent Skills CLI)
-npx skills add OWBastion/workshop-agent
+npx skills add wrightkit/workshop-agent
 
 # 2. deterministic tools package
-npm install owbastion-workshop-tools     # project-local
-# or: npm install --global owbastion-workshop-tools
+npm install wrightkit-workshop-tools     # project-local
+# or: npm install --global wrightkit-workshop-tools
 ```
 
 Seven commands are then available: `compile_overpy`, `find_symbol`, `find_references`, `inspect_rule`, `search_workshop_docs`, `fetch_workshop_doc`, `analyze_workshop`. See the package `CONTRACTS.md` for the `@1` JSON contracts.
