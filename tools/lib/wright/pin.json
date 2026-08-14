@@ -1,0 +1,7 @@
+{
+  "version": "0.1.0",
+  "contract": "wright-result/v1",
+  "releaseOwner": "wrightkit",
+  "releaseRepo": "wright",
+  "note": "Single pinned Wright implementation version consumed by the deterministic tools. Bump deliberately with a contract/evidence review; never track main or an arbitrary git SHA (see docs/wright-integration.md)."
+}

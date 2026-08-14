@@ -71,9 +71,17 @@ Errors: backend 403/challenge/unreachable → `DOC_FETCH_FAILED` (exit 3); slug 
 
 ## `analyze_workshop@1`
 
-**Input:** `analyze_workshop <entry.opy> [--root <dir>] [--rules <id,id>] [--language <lang>]`
+**Input:** `analyze_workshop <entry.opy> [--root <dir>] [--rules <id,id>] [--language <lang>] [--backend wright|overpy|auto]`
 
-Composes `compile_overpy@1` (subprocess JSON contract) with small source-inspection analyzer rules into structured Workshop-specific findings. Rules never re-implement compiler semantics: compiler facts come from `compile_overpy@1`; structural facts come from an OverPy source model (rule/subroutine blocks, annotations, indentation-based statement trees, `#!include` resolution); heuristic risks are flagged explicitly. No network, model, or harness dependency.
+Composes `compile_overpy@1` (subprocess JSON contract) with small source-inspection analyzer rules into structured Workshop-specific findings. Rules never re-implement compiler semantics: compiler facts come from `compile_overpy@1`; structural facts come from an OverPy source model (rule/subroutine blocks, annotations, indentation-based statement trees, `#!include` resolution); heuristic risks are flagged explicitly. No network, model, or harness dependency (the default backend).
+
+Since #68 the tool also has a Wright-backed path. `--backend` selects the analysis source:
+
+- `overpy` (default) — the behavior above; output carries `backend: "overpy"`.
+- `wright` — provisions the pinned released Wright binary (`tools/lib/wright/pin.json`, checksum/version-validated; never `main`), runs `wright analyze` + `wright lint`, and maps findings into this same envelope. Output carries `backend: "wright"` and `wright: { version, contract, commands }`; `compile` is `null` (no OverPy compile in this path). `--rules` is rejected (it selects local overpy rules only).
+- `auto` — uses Wright when already provisioned in the cache (no download); otherwise runs the overpy backend with an explicit `fallback: { reason, from, to }` marker. The marker is always present when a fallback happens; substitution is never silent.
+
+Finding mapping: Wright rule ids become `wright.<code>`; Wright evidence class (`exact | static-indicator | heuristic | runtime-validated`) maps to `confidence`/`kind`/`heuristic`/`requiresJudgment`; Wright severity `error|warning|info` maps to `error|warning|advisory`; spans become `locations` (file index 0 normalizes to the input basename). See `docs/wright-integration.md`.
 
 Output: exactly one JSON document on stdout:
 
@@ -116,6 +124,8 @@ Finding contract:
 
 Errors (fail closed — never an empty PASS): missing/unknown compiler output → `COMPILER_OUTPUT` (exit 3); project compile failure → `COMPILE_ERROR` (exit 1) with the compiler diagnostics; unparseable source structure → `ANALYSIS_UNSUPPORTED` (exit 1); a rule crash → `ANALYSIS_ERROR` (exit 1); unknown `--rules` id → `UNKNOWN_RULE` (exit 2). Rules register through a small inspectable array in `tools/lib/analyzer/registry.js`; adding a rule never changes this external contract.
 
+Wright backend errors (exit 3 unless noted): provisioning failures use the `WRIGHT_*` codes (`WRIGHT_UNSUPPORTED_PLATFORM`, `WRIGHT_RELEASE_NOT_FOUND`, `WRIGHT_CHECKSUM_MISMATCH`, `WRIGHT_PROVISION_FAILED`, `WRIGHT_VERSION_MISMATCH`, `WRIGHT_NOT_PROVISIONED`); a Wright diagnostic/semantic failure returns `ok: false` with `errors` mapped from Wright diagnostics, each carrying the Wright `code` and a `class` of `unsupported` (source surface outside Wright's support matrix — retry with `--backend overpy`) or `diagnostic` (genuine failure), exit 1.
+
 ## Portability boundary
 
 - Tool implementations must not import model, provider, or harness dependencies or branch on caller identity.
@@ -124,4 +134,5 @@ Errors (fail closed — never an empty PASS): missing/unknown compiler output �
 
 ## Contract history
 
+- **2026-08-14 (#68):** `analyze_workshop@1` gains an additive `--backend wright|overpy|auto` option and additive output fields — `backend`, `wright` (provenance when the Wright backend ran), and `fallback` (present exactly when a fallback occurred). `compile` is nullable (`null` on the Wright backend). Wright findings map to the same finding envelope with `wright.<code>` rule ids; Wright diagnostics carry `code` + `class` (`unsupported` | `diagnostic`). The default backend is unchanged (`overpy`), so existing consumers see only additive fields.
 - **2026-08-11 (#25 hardening):** removed the redundant search option; rejected unknown options; made the grep fallback and glob mapping explicit; returned `FILE_NOT_FOUND` for missing directories; unified error envelopes with `contract` and `error.code`; guaranteed one JSON document on expected failures; added the Node contract regression suite; preserved the successful-path schema.
