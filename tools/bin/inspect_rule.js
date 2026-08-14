@@ -1,37 +1,60 @@
 #!/usr/bin/env node
 "use strict";
-/* inspect_rule — structured Workshop rule/event/variable inspection.
+/* inspect_rule — structured Workshop rule/event/variable inspection (#73).
  * Contract: tools/CONTRACTS.md §inspect_rule.
- * Extracts rules (name, event, team, hero, conditions, action lines), variable
- * declarations/usages, and counts of selected operations relevant to M1 performance
- * reasoning. Lexical, line-based extraction: output is explicitly labeled heuristic,
- * not compiler-AST-backed semantics, and op counts are not a performance score.
  *
- * Usage: inspect_rule <file.opy | dir> [--glob <pat>]
+ * Backends (explicit, never silent — shared vocabulary in lib/wright/backend.js):
+ *   --backend wright -> single-file inputs use the pinned released Wright binary
+ *                       (`wright inspect`) as the semantic authority for rule
+ *                       identity (name/line), variable declarations, and symbol
+ *                       reference evidence. Textual metrics (event/team/hero/
+ *                       conditions, action counts, op counts) remain explicitly
+ *                       lexical. When Wright reports a diagnostic on the input, the
+ *                       tool falls back to the lexical extractor with an explicit
+ *                       `fallback` marker (the lexical extractor is the documented
+ *                       compatibility path for inspection of unsupported or
+ *                       partially invalid source). Wright provisioning/tool failures
+ *                       are structured WRIGHT_* errors (exit 3) — never silent.
+ *   --backend lexical -> the legacy line-based extractor (unchanged behavior).
+ *   --backend auto    -> wright when already provisioned in the cache (no download),
+ *                        otherwise lexical with an explicit `fallback` marker.
+ *
+ * Directory inputs always use the lexical extractor (bulk scan); the provenance
+ * records the request and the effective backend.
+ *
+ * Usage: inspect_rule <file.opy | dir> [--glob <pat>] [--backend wright|lexical|auto]
  * Output: exactly one JSON document on stdout.
  * Exit codes: 0 ok, 2 usage error, 3 environment error. */
 const fs = require("fs");
 const path = require("path");
 const { emit, fail, parseArgs } = require("../lib/cli.js");
+const { provision, provisionCached, WrightProvisionError } = require("../lib/wright/provision.js");
+const { WrightToolError, wrightInspect } = require("../lib/wright/adapter.js");
+const { PIN, RESULT_CLASS, FALLBACK_REASON, classifyWrightFailure, makeProvenance } = require("../lib/wright/backend.js");
 
 const TOOL = "inspect_rule";
 const CONTRACT = "inspect_rule@1";
 const MAX_FILES = 300;
 const MAX_RULES = 2000;
+const MAX_REFS = 2000;
+const BACKENDS = new Set(["wright", "lexical", "auto"]);
 
 const LIMITATIONS = [
-  "rule/event/condition extraction is lexical (line-based), not compiler-AST-backed; validate with compile_overpy",
+  "event/team/hero/conditions and action counts are lexical (line-based); validate with compile_overpy",
   "op counts are textual occurrence counts, not a semantic performance score; use with the M1 performance skill",
-  "variable classification (playervar/globalvar) is definition-likely; usages are textual member-access counts",
+  "rule identity and variable declarations are Wright-semantic when backend=wright; usages are textual member-access counts",
   "disabled rules are marked only when @Disabled follows the rule header directly",
+  "Wright semantic inspection applies to single-file inputs; directory scans use the lexical extractor",
 ];
 
-const parsed = parseArgs(process.argv.slice(2), { glob: { value: true } });
+const parsed = parseArgs(process.argv.slice(2), { glob: { value: true }, backend: { value: true } });
 if (parsed.unknown) fail(TOOL, CONTRACT, "USAGE", `unknown option: --${parsed.unknown}`, 2);
 const [target] = parsed.positional;
 const globPat = parsed.options.glob || "*.opy";
+const backend = parsed.options.backend || "auto";
+if (!BACKENDS.has(backend)) fail(TOOL, CONTRACT, "USAGE", `invalid --backend ${backend} (expected wright|lexical|auto)`, 2);
 
-if (!target) fail(TOOL, CONTRACT, "USAGE", "usage: inspect_rule <file.opy | dir> [--glob <pat>]", 2);
+if (!target) fail(TOOL, CONTRACT, "USAGE", "usage: inspect_rule <file.opy | dir> [--glob <pat>] [--backend wright|lexical|auto]", 2);
 let stat;
 try {
   stat = fs.statSync(target);
@@ -175,11 +198,18 @@ function inspectFile(file) {
   return { file, rules, variables: { playervar, globalvar, usages: variableUsages }, opCounts: { byRule: opCounts, total } };
 }
 
-function main() {
+// ---- lexical backend --------------------------------------------------------------
+
+function runLexical(fallback, requested = backend) {
   const files = stat.isDirectory() ? listOpyFiles(target) : [target];
+  const wrightMeta = fallback && fallback.wright ? { version: fallback.wright.version, contract: PIN.contract, commands: ["inspect"] } : null;
   if (files.length === 0) {
     emit({
-      tool: TOOL, contract: CONTRACT, ok: true, target, heuristic: true,
+      tool: TOOL, contract: CONTRACT, ok: true, target,
+      backend: "lexical",
+      provenance: makeProvenance({ requested, effective: "lexical", wright: wrightMeta, compat: null, fallback, resultClass: fallback ? RESULT_CLASS.EXPLICIT_FALLBACK : RESULT_CLASS.SUPPORTED_VALID }),
+      semantic: false,
+      heuristic: true,
       files: [], filesTruncated: false, rules: [],
       total: { opCounts: {}, ruleCount: 0, playervar: 0, globalvar: 0 },
       limitations: LIMITATIONS,
@@ -195,6 +225,9 @@ function main() {
     contract: CONTRACT,
     ok: true,
     target,
+    backend: "lexical",
+    provenance: makeProvenance({ requested, effective: "lexical", wright: wrightMeta, compat: null, fallback, resultClass: fallback ? RESULT_CLASS.EXPLICIT_FALLBACK : RESULT_CLASS.SUPPORTED_VALID }),
+    semantic: false,
     heuristic: true,
     files: results.map((r) => ({
       file: r.file,
@@ -215,4 +248,185 @@ function main() {
   }, 0);
 }
 
-main();
+// ---- wright semantic backend ------------------------------------------------------
+
+// Merge Wright semantic evidence (rule identity, symbols, references) with the lexical
+// extractor's textual metrics. Every field stays in the @1 shape; rule/`variable`
+// entries gain `evidence`/`source` markers so an agent can tell semantic facts from
+// lexical ones, and the file gains an additive `semantic` block (symbols/references).
+function mergeSemantic(insp, file) {
+  const lex = inspectFile(file);
+  const wrightRulesByLine = new Map();
+  for (const r of insp.rules || []) {
+    const line = r.span && r.span.start && Number.isFinite(Number(r.span.start.line)) ? Number(r.span.start.line) : null;
+    if (line !== null) wrightRulesByLine.set(line, r);
+  }
+  const rules = (lex.rules || []).map((r) => {
+    const wr = wrightRulesByLine.get(r.line);
+    return {
+      ...r,
+      evidence: {
+        name: wr ? "semantic" : "lexical",
+        line: wr ? "semantic" : "lexical",
+        disabled: "lexical",
+        event: "lexical",
+        team: "lexical",
+        hero: "lexical",
+        conditions: "lexical",
+        actionCount: "lexical",
+        ops: "lexical",
+      },
+    };
+  });
+
+  const symbols = insp.symbols || [];
+  const gvNames = new Set(symbols.filter((s) => s.kind === "globalVariable").map((s) => s.name));
+  const pvNames = new Set(symbols.filter((s) => s.kind === "playerVariable").map((s) => s.name));
+  const variables = {
+    playervar: (lex.variables.playervar || []).map((v) => ({ ...v, source: pvNames.has(v.name) ? "semantic" : "lexical" })),
+    globalvar: (lex.variables.globalvar || []).map((v) => ({ ...v, source: gvNames.has(v.name) ? "semantic" : "lexical" })),
+    usages: lex.variables.usages || [],
+  };
+
+  const symbolNames = new Map(symbols.map((s, i) => [i, s.name]));
+  const references = ((insp.references || []).flatMap((group, i) =>
+    (group || []).map((r) => {
+      const start = (r.span && r.span.start) || {};
+      return {
+        symbol: symbolNames.get(i) || String(i),
+        kind: r.kind,
+        rule: Number.isFinite(Number(r.rule)) ? Number(r.rule) : null,
+        line: Number.isFinite(Number(start.line)) ? Number(start.line) : null,
+        col: Number.isFinite(Number(start.col)) ? Number(start.col) : null,
+      };
+    })
+  ));
+  const referencesTruncated = references.length > MAX_REFS;
+  const cappedRefs = referencesTruncated ? references.slice(0, MAX_REFS) : references;
+
+  const semanticSymbols = symbols.map((s) => {
+    const start = (s.span && s.span.start) || {};
+    return {
+      kind: s.kind,
+      name: s.name,
+      line: Number.isFinite(Number(start.line)) ? Number(start.line) : null,
+      col: Number.isFinite(Number(start.col)) ? Number(start.col) : null,
+    };
+  });
+
+  const totalOps = lex.opCounts.total || {};
+  return {
+    file,
+    files: [{
+      file,
+      ruleCount: rules.length,
+      error: lex.error || null,
+      variables,
+      opCounts: totalOps,
+      semantic: { symbols: semanticSymbols, references: cappedRefs, referencesTruncated },
+    }],
+    rules,
+    total: {
+      ruleCount: rules.length,
+      opCounts: totalOps,
+      playervar: variables.playervar.length,
+      globalvar: variables.globalvar.length,
+    },
+  };
+}
+
+function failWright(code, message, hint, wrightMeta) {
+  emit({
+    tool: TOOL,
+    contract: CONTRACT,
+    ok: false,
+    backend: "wright",
+    provenance: makeProvenance({
+      requested: backend,
+      effective: "wright",
+      wright: wrightMeta || { version: PIN.version, contract: PIN.contract, commands: ["inspect"] },
+      compat: null,
+      fallback: null,
+      resultClass: RESULT_CLASS.INFRA_FAILURE,
+    }),
+    error: { code, message, ...(hint ? { hint } : {}) },
+  }, 3);
+}
+
+function runWrightSemantic(wr) {
+  // Directory scans are bulk lexical by design (Wright inspect is single-input); the
+  // provenance records the request and the effective backend explicitly.
+  if (stat.isDirectory()) {
+    runLexical({ reason: "directory-input", from: "wright", to: "lexical", wright: { version: wr.version, diagnostics: [] } }, backend);
+    return;
+  }
+  let insp;
+  try {
+    insp = wrightInspect(wr.bin, target, {});
+  } catch (e) {
+    if (e instanceof WrightToolError) {
+      const cls = classifyWrightFailure(e);
+      if (cls.resultClass === RESULT_CLASS.INFRA_FAILURE) {
+        failWright(e.code, e.message, e.hint, { version: wr.version, contract: wr.contract, commands: ["inspect"] });
+        return;
+      }
+      // Wright ran and reported a diagnostic: the lexical extractor is the documented
+      // compatibility path for inspecting unsupported or partially invalid source.
+      // The marker records the Wright evidence — never silent.
+      runLexical({
+        reason: FALLBACK_REASON.LEXICAL_PATH,
+        from: "wright",
+        to: "lexical",
+        wright: { version: wr.version, diagnostics: cls.diagnostics },
+      }, backend);
+      return;
+    }
+    throw e;
+  }
+  const merged = mergeSemantic(insp, target);
+  emit({
+    tool: TOOL,
+    contract: CONTRACT,
+    ok: true,
+    target,
+    backend: "wright",
+    provenance: makeProvenance({
+      requested: backend,
+      effective: "wright",
+      wright: { version: wr.version, contract: wr.contract, commands: ["inspect"] },
+      compat: null,
+      fallback: null,
+      resultClass: RESULT_CLASS.SUPPORTED_VALID,
+    }),
+    wright: { version: wr.version, contract: wr.contract, commands: ["inspect"] },
+    semantic: true,
+    heuristic: true,
+    files: merged.files,
+    filesTruncated: false,
+    rules: merged.rules,
+    total: merged.total,
+    limitations: LIMITATIONS,
+  }, 0);
+}
+
+// ---- dispatch ---------------------------------------------------------------------
+
+(async () => {
+  if (backend === "wright") {
+    try {
+      const wr = await provision({});
+      runWrightSemantic(wr);
+    } catch (e) {
+      if (e instanceof WrightProvisionError) failWright(e.code, e.message, e.hint);
+      throw e;
+    }
+  } else if (backend === "auto") {
+    const cached = provisionCached({});
+    if (cached) runWrightSemantic(cached);
+    else runLexical({ reason: FALLBACK_REASON.NOT_PROVISIONED, from: "wright", to: "lexical", wright: { version: PIN.version, diagnostics: [] } });
+  } else {
+    runLexical(null);
+  }
+})().catch((e) => {
+  fail(TOOL, CONTRACT, "INTERNAL_ERROR", String((e && e.message) || e), 3);
+});

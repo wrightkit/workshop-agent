@@ -18,6 +18,7 @@
 const { spawnSync } = require("child_process");
 const path = require("path");
 const { makeFinding, dedupeAndOrder } = require("../analyzer/findings.js");
+const { diagClass } = require("./backend.js");
 
 class WrightToolError extends Error {
   constructor(code, message, details = {}) {
@@ -73,17 +74,15 @@ function mapFinding(f, input) {
     locations,
     evidence: [f.message].filter(Boolean),
     fingerprint: `wright.${f.code}:${file}:${line === null ? "" : line}:${col === null ? "" : col}`,
+    backend: "wright",
   });
 }
 
 // wright diagnostics (ok:false path) -> structured error list for the tool envelope.
 // Each entry carries a `class` so agents can distinguish an unsupported source surface
-// (wright `unsupported-*` codes) from a genuine semantic/diagnostic failure, per the
-// #68 fallback policy: never present either as a silent success.
-function diagClass(code) {
-  return /^unsupported/.test(String(code || "")) ? "unsupported" : "diagnostic";
-}
-
+// (declared compatibility boundary; see lib/wright/backend.js) from a genuine
+// semantic/diagnostic failure, per the fallback policy: never present either as a
+// silent success.
 function mapDiagnostics(diags) {
   return (diags || []).map((d) => {
     const start = (d.span && d.span.start) || {};
@@ -124,6 +123,27 @@ function runWright(bin, cmd, input, { root, locale, timeoutMs = 120000, env } = 
   return out;
 }
 
+// `wright compile` -> { output } machine evidence for compile_overpy@1 (#71).
+// Returns { result, output: { text, sha256, input_identity, locale } }.
+function wrightCompile(bin, input, opts = {}) {
+  const out = runWright(bin, "compile", input, opts);
+  const output = (out.result && out.result.output) || {};
+  return { result: out.result, output: { text: output.text || "", sha256: output.sha256 || null, inputIdentity: output.input_identity || null, locale: output.locale || null } };
+}
+
+// `wright inspect` -> semantic project model (rules/symbols/references) for
+// inspect_rule@1 (#73) and the compile envelope's variable/subroutine lists (#71).
+function wrightInspect(bin, input, opts = {}) {
+  const out = runWright(bin, "inspect", input, opts);
+  const result = out.result || {};
+  return {
+    program: result.program || null,
+    rules: result.rules || [],
+    symbols: result.symbols || [],
+    references: result.references || [],
+  };
+}
+
 // Compose wright analyze + lint into deduped findings plus provenance.
 function wrightFindings(bin, input, { root, locale, timeoutMs, env } = {}) {
   const analyze = runWright(bin, "analyze", input, { root, locale, timeoutMs, env });
@@ -144,5 +164,7 @@ module.exports = {
   mapFinding,
   mapDiagnostics,
   runWright,
+  wrightCompile,
+  wrightInspect,
   wrightFindings,
 };

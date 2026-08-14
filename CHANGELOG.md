@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.1.4] — 2026-08-15
+
+- **Wright-first deterministic tooling (pre-V1 ownership migration).** The pinned
+  released Wright binary (`wrightkit/wright` v0.1.0, `wright-result/v1`, checksum- and
+  version-validated, cached under `~/.cache/wrightkit-wright/`) is now the primary
+  semantic/compiler/analyzer/inspection backend for the supported OPY surface:
+  - `compile_overpy` defaults to `auto` — `wright compile` (+ `wright inspect` for
+    variable/subroutine identity) with an explicit OverPy compatibility fallback on
+    declared unsupported surfaces; genuine Wright diagnostics fail closed and are never
+    converted into fallback success.
+  - `analyze_workshop` defaults to `auto` — one composed analyzer: Wright
+    `analyze`+`lint` evidence merged with the narrow Agent-local M5 rules the pinned
+    release has no counterpart for; findings carry per-finding backend provenance.
+  - `inspect_rule` defaults to `auto` — Wright semantic inspection of rule identity and
+    variables for single-file inputs, with textual metrics explicitly lexical.
+  - `find_symbol`/`find_references` remain fast lexical search (ripgrep/grep), and
+    `search_workshop_docs`/`fetch_workshop_doc` remain the routed reference-retrieval
+    layer — intentional ownership boundaries.
+  - Every migrated tool output carries `backend` and a `provenance` block
+    (`requested`/`effective`/`wright`/`compat`/`fallback`/`resultClass`); fallback is
+    never silent and Wright provisioning/tool failures stay structured `WRIGHT_*` errors.
+- No Rust toolchain or source checkout is required; the first explicit `--backend
+  wright` run provisions the pinned binary, while `auto` uses the cache and never forces
+  a download.
+
 ## [0.1.3] — 2026-08-12
 
 - Enforced a strict publication policy: `workshop-agent` now ships distributable runtime/knowledge assets only. Fixtures, snapshots, and validation harnesses remain in the private source repository and are never published at any path depth — this supersedes the earlier component-local allowance. The exporter filters them recursively under every allowlisted root, an independent staging gate fails closed if any remain, and public `package.json` metadata no longer advertises commands for unshipped assets.

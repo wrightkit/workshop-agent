@@ -97,6 +97,17 @@ The package exposes seven commands with narrow, portable CLI/JSON contracts (`CO
 
 Every tool emits exactly one JSON document on stdout with a stable contract identity (`compile_overpy@1`, `analyze_workshop@1`, ...), and uses non-zero exit codes for structured errors — a harness can rely on that instead of scraping text.
 
+### Semantic backends and provenance
+
+Wright (`wrightkit/wright`) is the primary semantic/compiler/analyzer/inspection backend for the supported OPY surface:
+
+- `compile_overpy`, `inspect_rule`, and `analyze_workshop` default to the pinned released Wright binary (`auto` backend) when it is available, and keep **OverPy only as an explicit compatibility fallback/oracle** where Wright's declared surface does not cover the input (for example `#!extension`, `@Hero` directives, settings builtins, or numeric enum members such as `Team.1`).
+- Fast lexical search (`find_symbol` / `find_references`) stays on ripgrep/grep, and Workshop documentation retrieval (`search_workshop_docs` / `fetch_workshop_doc`) stays on the routed `md.owbastion.codes` manifest — these are intentional ownership boundaries.
+- Every migrated tool output carries `backend` (the effective backend) and a `provenance` block: `requested`, `effective`, `wright` (pinned version/contract), `compat` (overpy version when a fallback ran), `fallback` (reason/from/to — present exactly when a fallback happened), and `resultClass` (`supported-and-valid`, `supported-with-diagnostic`, `unsupported-surface`, `wright-infrastructure-failure`, `explicit-fallback-result`). `analyze_workshop` findings additionally carry per-finding `backend` provenance.
+- **Never silent:** a genuine Wright diagnostic is returned as a diagnostic (exit 1) and is never converted into a successful OverPy result; a Wright provisioning/tool failure is a structured `WRIGHT_*` error (exit 3). Only a *declared unsupported surface* (or the documented `auto` not-provisioned path) triggers an explicit fallback, and the marker is always present.
+
+The pinned Wright release is provisioned automatically from the `wrightkit/wright` GitHub Release contract: checksum-verified, version-pinned, cached under `~/.cache/wrightkit-wright/<version>/<target>/` (override with `WRIGHT_CACHE_DIR`). Supported platforms: macOS (arm64/x64), Linux (x64), Windows (x64). No Rust toolchain or source checkout is required; the first explicit `--backend wright` run downloads the binary, while the default `auto` backend uses a cached binary and never forces a download.
+
 ### The engineering loop
 
 For a Workshop engineering task, prefer deterministic evidence over model inference in this order:

@@ -6,7 +6,7 @@ M2 introduced these deterministic capabilities for any agent harness or model pr
 
 | Contract | Command | Purpose |
 | --- | --- | --- |
-| `compile_overpy@1` | `bin/compile_overpy.js` | Compile and validate OverPy with structured diagnostics, element counts, variables, and subroutines |
+| `compile_overpy@1` | `bin/compile_overpy.js` | Compile and validate OverPy with structured diagnostics, element counts, variables, and subroutines — Wright-first since #71, with explicit OverPy compatibility fallback |
 | `find_symbol@1` | `bin/find_symbol.js` | Locate symbol/name occurrences with lexical classification |
 | `find_references@1` | `bin/find_references.js` | Locate textual references and likely declarations |
 | `inspect_rule@1` | `bin/inspect_rule.js` | Inspect rules, events, variables, and operation counts with explicit heuristic evidence |
@@ -47,5 +47,18 @@ Exit codes are `0` for success (including no matches), `1` for compile/validatio
 ## Boundary
 
 This layer reports deterministic facts: compile status, symbol/reference locations, and lexical rule/operation structure. Semantic judgments such as performance danger and lifecycle correctness remain in the domain skills. Heuristic outputs explicitly say `heuristic` or `confidence: "textual"` and must not be presented as compiler or runtime proof.
+
+## Wright-first backends
+
+Since #70/#71 the semantic/compiler/analyzer/inspection tools prefer the pinned released
+Wright binary (`tools/lib/wright/pin.json`) when the input is within Wright's supported
+OPY surface, and keep OverPy only as an explicit compatibility fallback/oracle. Every
+output carries `backend` and `provenance` fields (requested/effective backend, Wright
+release identity, compatibility version, fallback marker, result class); see
+`CONTRACTS.md` §Backend and provenance. Wright diagnostics are never converted into
+fallback success, and Wright provisioning/tool failures stay structured `WRIGHT_*`
+errors. `search_workshop_docs` / `fetch_workshop_doc` remain the reference-retrieval
+layer and `find_symbol` / `find_references` remain fast lexical search — these are
+intentional ownership boundaries, not migration targets.
 
 Generated artifacts such as `node_modules` and compiler output stay out of version control.

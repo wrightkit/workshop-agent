@@ -20,6 +20,7 @@
 const VALID_SEVERITY = new Set(["error", "warning", "advisory"]);
 const VALID_CONFIDENCE = new Set(["high", "medium", "low"]);
 const VALID_KIND = new Set(["compiler", "structural", "heuristic"]);
+const VALID_BACKEND = new Set(["wright", "overpy"]);
 
 function normLoc(l) {
   return {
@@ -33,12 +34,13 @@ function locKey(l) {
   return `${l.file}:${l.line}:${l.col}`;
 }
 
-function makeFinding({ rule, severity, confidence, kind, reason, heuristic = false, requiresJudgment = false, locations = [], evidence = [], fingerprint }) {
+function makeFinding({ rule, severity, confidence, kind, reason, heuristic = false, requiresJudgment = false, locations = [], evidence = [], fingerprint, backend }) {
   if (typeof rule !== "string" || !rule) throw new Error(`invalid rule id: ${JSON.stringify(rule)}`);
   if (!VALID_SEVERITY.has(severity)) throw new Error(`invalid severity: ${JSON.stringify(severity)}`);
   if (!VALID_CONFIDENCE.has(confidence)) throw new Error(`invalid confidence: ${JSON.stringify(confidence)}`);
   if (!VALID_KIND.has(kind)) throw new Error(`invalid kind: ${JSON.stringify(kind)}`);
   if (typeof reason !== "string" || !reason.trim()) throw new Error(`finding ${rule} requires a non-empty reason`);
+  if (backend !== undefined && !VALID_BACKEND.has(backend)) throw new Error(`invalid backend: ${JSON.stringify(backend)}`);
   const locs = (locations || []).map(normLoc);
   const fp = fingerprint || [rule, ...locs.map(locKey)].join("|");
   return {
@@ -52,6 +54,9 @@ function makeFinding({ rule, severity, confidence, kind, reason, heuristic = fal
     locations: locs,
     evidence: (evidence || []).map(String),
     fingerprint: fp,
+    // Per-finding evidence provenance (#72): which deterministic backend produced this
+    // finding. Additive — not part of the fingerprint or ordering.
+    ...(backend ? { backend } : {}),
   };
 }
 
