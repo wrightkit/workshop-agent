@@ -1,0 +1,9 @@
+# Dependabot version updates for workshop-agent.
+# Docs: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+version: 2
+updates:
+  # Agent tooling package (npm lockfile under tools/).
+  - package-ecosystem: npm
+    directory: /tools
+    schedule:
+      interval: weekly
