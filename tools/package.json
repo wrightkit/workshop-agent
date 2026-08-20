@@ -35,6 +35,6 @@
     "analyze_workshop": "./bin/analyze_workshop.js"
   },
   "dependencies": {
-    "overpy": "^9.7.10"
+    "overpy": "^9.7.13"
   }
 }
